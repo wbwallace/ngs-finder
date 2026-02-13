@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NGS Finder</title>
+<style>
+body { margin:0; font-family: sans-serif; background: #1a472a; color: #fafaf9; }
+#app { display: flex; flex-direction: column; height: 100vh; }
+header { background: #2d5f3f; padding: 15px; }
+.tabs { display: flex; gap: 5px; margin-top: 10px; }
+.tab { flex: 1; padding: 10px; background: #1a472a; border: none; color: #fafaf9; border-radius: 5px; }
+.tab.active { background: #d97706; }
+main { flex: 1; overflow: auto; padding: 15px; }
+.view { display: none; }
+.view.active { display: block; }
+.btn { background: #d97706; color: white; border: none; padding: 12px 20px; border-radius: 5px; font-size: 16px; }
+.monument-card { background: #2d5f3f; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #d97706; }
+.compass { width: 250px; height: 250px; border: 3px solid #7a9e7e; border-radius: 50%; margin: 20px auto; position: relative; }
+.arrow { position: absolute; top: 50%; left: 50%; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 100px solid #d97706; transform-origin: 50% 75%; transform: translate(-50%, -50%); }
+footer { background: #2d5f3f; padding: 10px; text-align: center; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+<h1>NGS Monument Finder</h1>
+<div class="tabs">
+<button class="tab active" onclick="showView('load')">Load</button>
+<button class="tab" onclick="showView('list')">List</button>
+<button class="tab" onclick="showView('nav')">Navigate</button>
+</div>
+</header>
+<main>
+<div id="load" class="view active">
+<h2>Load CSV</h2>
+<input type="file" id="file" accept=".csv">
+<button class="btn" onclick="document.getElementById('file').click()">Choose File</button>
+<p id="status"></p>
+</div>
+<div id="list" class="view">
+<div id="monuments"></div>
+</div>
+<div id="nav" class="view">
+<div id="navinfo">Select a monument</div>
+</div>
+</main>
+<footer id="footer">GPS starting...</footer>
+</div>
+<script>
+let monuments = [];
+let pos = null;
+let selected = null;
+
+document.getElementById('file').onchange = function(e) {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        const lines = evt.target.result.split('\n');
+        const hdr = lines[0].toLowerCase().split(',');
+        const pidIdx = hdr.indexOf('pid');
+        const nameIdx = hdr.indexOf('name');
+        const latIdx = hdr.indexOf('dd latitude');
+        const lonIdx = hdr.indexOf('dd longitude');
+        monuments = [];
+        for(let i=1; i<lines.length; i++) {
+            const parts = lines[i].split(',');
+            const lat = parseFloat(parts[latIdx]);
+            const lon = parseFloat(parts[lonIdx]);
+            if(!isNaN(lat) && !isNaN(lon)) {
+                monuments.push({
+                    pid: parts[pidIdx],
+                    name: parts[nameIdx],
+                    lat: lat,
+                    lon: lon
+                });
+            }
+        }
+        document.getElementById('status').textContent = `Loaded ${monuments.length} monuments`;
+        showView('list');
+    };
+    reader.readAsText(file);
+};
+
+function showView(name) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(name).classList.add('active');
+    event.target.classList.add('active');
+    if(name === 'list') showList();
+    if(name === 'nav' && selected) showNav();
+}
+
+function showList() {
+    const div = document.getElementById('monuments');
+    div.innerHTML = monuments.map(m => 
+        `<div class="monument-card" onclick="selectMon('${m.pid}')">
+            <h3>${m.name || m.pid}</h3>
+            <p>PID: ${m.pid}</p>
+        </div>`
+    ).join('');
+}
+
+function selectMon(pid) {
+    selected = monuments.find(m => m.pid === pid);
+    showView('nav');
+}
+
+function showNav() {
+    if(!selected || !pos) {
+        document.getElementById('navinfo').innerHTML = 'Waiting...';
+        return;
+    }
+    const dist = distance(pos.latitude, pos.longitude, selected.lat, selected.lon);
+    const bear = bearing(pos.latitude, pos.longitude, selected.lat, selected.lon);
+    document.getElementById('navinfo').innerHTML = `
+        <h2>${selected.name}</h2>
+        <div class="compass"><div class="arrow" style="transform: translate(-50%,-50%) rotate(${bear}deg)"></div></div>
+        <p>Distance: ${(dist/1000).toFixed(2)} km</p>
+        <p>Bearing: ${Math.round(bear)}°</p>
+    `;
+}
+
+function distance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3;
+    const p1 = lat1 * Math.PI/180;
+    const p2 = lat2 * Math.PI/180;
+    const dp = (lat2-lat1) * Math.PI/180;
+    const dl = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(dp/2)*Math.sin(dp/2) + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function bearing(lat1, lon1, lat2, lon2) {
+    const p1 = lat1 * Math.PI/180;
+    const p2 = lat2 * Math.PI/180;
+    const dl = (lon2-lon1) * Math.PI/180;
+    const y = Math.sin(dl) * Math.cos(p2);
+    const x = Math.cos(p1)*Math.sin(p2) - Math.sin(p1)*Math.cos(p2)*Math.cos(dl);
+    return (Math.atan2(y,x) * 180/Math.PI + 360) % 360;
+}
+
+navigator.geolocation.watchPosition(
+    function(position) {
+        pos = position.coords;
+        document.getElementById('footer').textContent = 
+            `${pos.latitude.toFixed(6)}, ${pos.longitude.toFixed(6)} | HDG: ${pos.heading || 'NONE'}`;
+        if(document.getElementById('nav').classList.contains('active') && selected) showNav();
+    },
+    function(err) {
+        document.getElementById('footer').textContent = 'GPS Error: ' + err.message;
+    },
+    { enableHighAccuracy: true }
+);
+</script>
+</body>
+</html>
