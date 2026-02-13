@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a472a">
+    <title>NGS Monument Finder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --forest: #1a472a;
+            --moss: #2d5f3f;
+            --sage: #7a9e7e;
+            --alert: #d97706;
+            --text-light: #fafaf9;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--forest);
+            color: var(--text-light);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #app {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: rgba(26, 71, 42, 0.95);
+            padding: 1rem;
+            border-bottom: 2px solid var(--sage);
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .tabs {
+            display: flex;
+            background: rgba(45, 95, 63, 0.5);
+            border-radius: 8px;
+            margin-top: 0.75rem;
+            padding: 3px;
+            gap: 3px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 0.5rem;
+            background: transparent;
+            border: none;
+            color: var(--text-light);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+            opacity: 0.7;
+        }
+
+        .tab.active {
+            background: var(--moss);
+            opacity: 1;
+        }
+
+        main {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .view {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        .upload-area {
+            background: rgba(45, 95, 63, 0.3);
+            border: 2px dashed var(--sage);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            background: var(--alert);
+            color: var(--text-light);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary {
+            background: var(--moss);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .stats {
+            background: rgba(45, 95, 63, 0.4);
+            border-radius: 8px;
+            padding: 1rem;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--alert);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            margin-top: 0.25rem;
+        }
+
+        .search-box {
+            background: rgba(45, 95, 63, 0.4);
+            border: 2px solid var(--sage);
+            border-radius: 8px;
+            padding: 0.75rem;
+            color: var(--text-light);
+            font-size: 1rem;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .monument-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .monument-card {
+            background: rgba(45, 95, 63, 0.4);
+            border-radius: 8px;
+            padding: 1rem;
+            border-left: 4px solid var(--alert);
+            cursor: pointer;
+        }
+
+        .monument-card h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--alert);
+        }
+
+        .monument-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .meta-item {
+            background: rgba(26, 71, 42, 0.6);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .distance-badge {
+            background: var(--alert);
+            color: #000;
+            font-weight: 700;
+        }
+
+        .nav-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .compass-display {
+            width: 280px;
+            height: 280px;
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .compass-ring {
+            width: 100%;
+            height: 100%;
+            border: 4px solid var(--sage);
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .compass-arrow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 120px solid var(--alert);
+            transform-origin: 50% 75%;
+            transform: translate(-50%, -50%) rotate(0deg);
+            transition: transform 0.3s ease-out;
+        }
+
+        .compass-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background: var(--text-light);
+            border-radius: 50%;
+            border: 3px solid var(--forest);
+        }
+
+        .target-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--alert);
+            text-align: center;
+        }
+
+        .nav-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            background: rgba(45, 95, 63, 0.4);
+            padding: 1.5rem;
+            border-radius: 12px;
+            width: 100%;
+        }
+
+        .nav-stat {
+            text-align: center;
+        }
+
+        .nav-stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--alert);
+        }
+
+        .nav-stat-label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            margin-top: 0.25rem;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 3rem 1rem;
+            opacity: 0.6;
+        }
+
+        .error-message {
+            background: rgba(217, 119, 6, 0.2);
+            border: 2px solid var(--alert);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            color: var(--alert);
+        }
+
+        footer {
+            background: rgba(26, 71, 42, 0.95);
+            padding: 0.75rem 1rem;
+            border-top: 2px solid var(--sage);
+            text-align: center;
+            font-size: 0.75rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>🧭 NGS Monument Finder</h1>
+            <div class="tabs">
+                <button class="tab active" data-view="load">Load</button>
+                <button class="tab" data-view="list">List</button>
+                <button class="tab" data-view="navigate">Navigate</button>
+            </div>
+        </header>
+
+        <main>
+            <div id="load-view" class="view active">
+                <div class="upload-area">
+                    <h2 style="margin-bottom: 1rem;">Load Monument Data</h2>
+                    <p style="margin-bottom: 1.5rem;">Import CSV file from NGS Map</p>
+                    <button class="btn" onclick="document.getElementById('csvFile').click()">
+                        Choose CSV File
+                    </button>
+                    <input type="file" id="csvFile" accept=".csv" onchange="loadCSV(event)">
+                </div>
+
+                <div id="load-stats" class="stats hidden">
+                    <div class="stat">
+                        <div class="stat-value" id="monument-count">0</div>
+                        <div class="stat-label">Monuments</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="gps-status">OFF</div>
+                        <div class="stat-label">GPS Status</div>
+                    </div>
+                </div>
+
+                <div id="load-error" class="error-message hidden"></div>
+
+                <div id="gps-request" class="hidden" style="margin-top: 1.5rem; background: rgba(217, 119, 6, 0.2); border: 2px solid var(--alert); border-radius: 8px; padding: 1.5rem; text-align: center;">
+                    <p style="margin-bottom: 1rem; font-weight: 600;">GPS Permission Required</p>
+                    <p style="margin-bottom: 1rem; font-size: 0.875rem; opacity: 0.9;">This app needs location access to calculate distances and guide you to monuments.</p>
+                    <button class="btn" onclick="requestGPSPermission()" style="width: 100%;">Grant Location Permission</button>
+                </div>
+
+                <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; flex-direction: column;">
+                    <button class="btn btn-secondary" onclick="retryGPS()" style="width: 100%;">Retry GPS</button>
+                    <button class="btn btn-secondary" onclick="clearData()" style="width: 100%;">Clear All Data</button>
+                </div>
+            </div>
+
+            <div id="list-view" class="view">
+                <input type="text" class="search-box" id="search" placeholder="Search by PID, name, or stamping..." oninput="filterMonuments()">
+                <div id="monument-list" class="monument-list">
+                    <div class="no-data">No monuments loaded</div>
+                </div>
+            </div>
+
+            <div id="navigate-view" class="view">
+                <div id="nav-container" class="nav-container">
+                    <div class="no-data">Select a monument from List</div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <div id="coords">Starting GPS...</div>
+        </footer>
+    </div>
+
+    <script>
+        let monuments = [];
+        let currentPosition = null;
+        let selectedMonument = null;
+        let watchId = null;
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const viewName = tab.dataset.view;
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(viewName + '-view').classList.add('active');
+                
+                if (viewName === 'list') {
+                    renderMonumentList();
+                } else if (viewName === 'navigate' && selectedMonument) {
+                    renderNavigation();
+                }
+            });
+        });
+
+        function loadCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    parseCSV(e.target.result);
+                } catch (error) {
+                    showError('Error: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) {
+                showError('CSV file is empty');
+                return;
+            }
+
+            const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+            
+            const idx = {
+                pid: header.indexOf('pid'),
+                name: header.indexOf('name'),
+                posSource: header.indexOf('position source'),
+                marker: header.indexOf('marker'),
+                stamping: header.indexOf('stamping'),
+                lon: header.indexOf('dd longitude'),
+                lat: header.indexOf('dd latitude'),
+                lastCondition: header.indexOf('last condition')
+            };
+
+            if (idx.lat === -1 || idx.lon === -1) {
+                showError('CSV must have DD LATITUDE and DD LONGITUDE');
+                return;
+            }
+
+            monuments = [];
+            let skipped = 0;
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                const vals = parseCSVLine(line);
+                
+                const lat = parseFloat(vals[idx.lat]);
+                const lon = parseFloat(vals[idx.lon]);
+
+                if (isNaN(lat) || isNaN(lon)) {
+                    skipped++;
+                    continue;
+                }
+
+                monuments.push({
+                    pid: vals[idx.pid] || '',
+                    name: vals[idx.name] || '',
+                    posSource: vals[idx.posSource] || '',
+                    marker: vals[idx.marker] || '',
+                    stamping: vals[idx.stamping] || '',
+                    lat: lat,
+                    lon: lon,
+                    lastCondition: vals[idx.lastCondition] || '',
+                    distance: null
+                });
+            }
+
+            localStorage.setItem('ngs-monuments', JSON.stringify(monuments));
+            document.getElementById('monument-count').textContent = monuments.length;
+            document.getElementById('load-stats').classList.remove('hidden');
+            
+            showError(skipped > 0 ? `Loaded ${monuments.length} (skipped ${skipped})` : '');
+            document.querySelector('[data-view="list"]').click();
+        }
+
+        function parseCSVLine(line) {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            values.push(current.trim());
+            return values;
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c;
+        }
+
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const y = Math.sin(Δλ) * Math.cos(φ2);
+            const x = Math.cos(φ1) * Math.sin(φ2) -
+                      Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+            const θ = Math.atan2(y, x);
+
+            return (θ * 180 / Math.PI + 360) % 360;
+        }
+
+        function formatDistance(meters) {
+            if (meters < 1000) {
+                return Math.round(meters) + ' m';
+            } else {
+                return (meters / 1000).toFixed(2) + ' km';
+            }
+        }
+
+        function renderMonumentList() {
+            const container = document.getElementById('monument-list');
+            
+            if (monuments.length === 0) {
+                container.innerHTML = '<div class="no-data">No monuments loaded</div>';
+                return;
+            }
+
+            if (currentPosition) {
+                monuments.forEach(m => {
+                    m.distance = calculateDistance(
+                        currentPosition.latitude,
+                        currentPosition.longitude,
+                        m.lat,
+                        m.lon
+                    );
+                });
+                monuments.sort((a, b) => a.distance - b.distance);
+            }
+
+            const searchTerm = document.getElementById('search').value.toLowerCase();
+            const filtered = monuments.filter(m => 
+                m.pid.toLowerCase().includes(searchTerm) ||
+                m.name.toLowerCase().includes(searchTerm) ||
+                m.stamping.toLowerCase().includes(searchTerm)
+            );
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-data">No matches</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(m => `
+                <div class="monument-card" onclick="selectMonument('${m.pid}')">
+                    <h3>${m.name || m.pid}</h3>
+                    <div class="monument-meta">
+                        <span class="meta-item">PID: ${m.pid}</span>
+                        ${m.stamping ? `<span class="meta-item">${m.stamping}</span>` : ''}
+                        ${m.marker ? `<span class="meta-item">${m.marker}</span>` : ''}
+                        ${m.lastCondition ? `<span class="meta-item">${m.lastCondition}</span>` : ''}
+                        ${m.distance !== null ? `<span class="meta-item distance-badge">${formatDistance(m.distance)}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterMonuments() {
+            renderMonumentList();
+        }
+
+        function selectMonument(pid) {
+            selectedMonument = monuments.find(m => m.pid === pid);
+            if (selectedMonument) {
+                document.querySelector('[data-view="navigate"]').click();
+            }
+        }
+
+        function renderNavigation() {
+            const container = document.getElementById('nav-container');
+            
+            if (!selectedMonument) {
+                container.innerHTML = '<div class="no-data">Select a monument from List</div>';
+                return;
+            }
+
+            if (!currentPosition) {
+                container.innerHTML = '<div class="no-data">Waiting for GPS...</div>';
+                return;
+            }
+
+            const distance = calculateDistance(
+                currentPosition.latitude,
+                currentPosition.longitude,
+                selectedMonument.lat,
+                selectedMonument.lon
+            );
+
+            const bearing = calculateBearing(
+                currentPosition.latitude,
+                currentPosition.longitude,
+                selectedMonument.lat,
+                selectedMonument.lon
+            );
+
+            let arrowRotation = bearing;
+            if (currentPosition.heading !== null && currentPosition.heading !== undefined) {
+                arrowRotation = bearing - currentPosition.heading;
+            }
+
+            container.innerHTML = `
+                <div class="compass-display">
+                    <div class="compass-ring">
+                        <div class="compass-arrow" style="transform: translate(-50%, -50%) rotate(${arrowRotation}deg);"></div>
+                        <div class="compass-center"></div>
+                    </div>
+                </div>
+                <div style="width: 100%;">
+                    <div class="target-name">${selectedMonument.name || selectedMonument.pid}</div>
+                    <div class="nav-stats">
+                        <div class="nav-stat">
+                            <div class="nav-stat-value">${formatDistance(distance)}</div>
+                            <div class="nav-stat-label">Distance</div>
+                        </div>
+                        <div class="nav-stat">
+                            <div class="nav-stat-value">${Math.round(bearing)}°</div>
+                            <div class="nav-stat-label">Bearing</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updatePosition(position) {
+            currentPosition = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                heading: position.coords.heading
+            };
+
+            document.getElementById('coords').textContent = 
+                `${currentPosition.latitude.toFixed(6)}, ${currentPosition.longitude.toFixed(6)} (±${Math.round(currentPosition.accuracy)}m)`;
+            
+            document.getElementById('gps-status').textContent = 'ON';
+            
+            if (document.getElementById('list-view').classList.contains('active')) {
+                renderMonumentList();
+            }
+            
+            if (document.getElementById('navigate-view').classList.contains('active') && selectedMonument) {
+                renderNavigation();
+            }
+        }
+
+        function handlePositionError(error) {
+            console.error('GPS Error:', error);
+            let msg = 'GPS Error: ';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    msg += 'Permission denied';
+                    document.getElementById('gps-status').textContent = 'DENIED';
+                    document.getElementById('gps-request').classList.remove('hidden');
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    msg += 'Position unavailable';
+                    document.getElementById('gps-status').textContent = 'UNAVAIL';
+                    break;
+                case error.TIMEOUT:
+                    msg += 'Timeout';
+                    document.getElementById('gps-status').textContent = 'TIMEOUT';
+                    break;
+                default:
+                    msg += error.message;
+                    document.getElementById('gps-status').textContent = 'ERROR';
+            }
+            document.getElementById('coords').textContent = msg;
+        }
+
+        function requestGPSPermission() {
+            document.getElementById('coords').textContent = 'Requesting permission...';
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    document.getElementById('gps-request').classList.add('hidden');
+                    updatePosition(position);
+                    startGPS();
+                },
+                function(error) {
+                    if (error.code === error.PERMISSION_DENIED) {
+                        alert('Location permission was denied. Please enable location access in your browser settings:\n\nSettings → Site Settings → Location → Allow');
+                    }
+                    handlePositionError(error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        function startGPS() {
+            if (!navigator.geolocation) {
+                showError('GPS not supported');
+                document.getElementById('coords').textContent = 'GPS not supported';
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    updatePosition(position);
+                    watchId = navigator.geolocation.watchPosition(
+                        updatePosition,
+                        handlePositionError,
+                        {
+                            enableHighAccuracy: true,
+                            maximumAge: 1000,
+                            timeout: 10000
+                        }
+                    );
+                },
+                function(error) {
+                    handlePositionError(error);
+                    watchId = navigator.geolocation.watchPosition(
+                        updatePosition,
+                        handlePositionError,
+                        {
+                            enableHighAccuracy: true,
+                            maximumAge: 5000,
+                            timeout: 15000
+                        }
+                    );
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        function retryGPS() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+            document.getElementById('coords').textContent = 'Retrying GPS...';
+            startGPS();
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('load-error');
+            if (message) {
+                errorEl.textContent = message;
+                errorEl.classList.remove('hidden');
+            } else {
+                errorEl.classList.add('hidden');
+            }
+        }
+
+        function clearData() {
+            if (confirm('Clear all monument data?')) {
+                monuments = [];
+                selectedMonument = null;
+                localStorage.removeItem('ngs-monuments');
+                document.getElementById('monument-count').textContent = '0';
+                document.getElementById('load-stats').classList.add('hidden');
+                renderMonumentList();
+                showError('');
+            }
+        }
+
+        function init() {
+            const saved = localStorage.getItem('ngs-monuments');
+            if (saved) {
+                try {
+                    monuments = JSON.parse(saved);
+                    document.getElementById('monument-count').textContent = monuments.length;
+                    document.getElementById('load-stats').classList.add('hidden');
+                } catch (e) {
+                    console.error('Error loading saved data:', e);
+                }
+            }
+
+            startGPS();
+        }
+
+        init();
+    </script>
+</body>
+</html>
